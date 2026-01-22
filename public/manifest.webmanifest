@@ -1,0 +1,12 @@
+{
+  "name": "FHIRanator",
+  "short_name": "FHIRanator",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/fhiranator_doodle_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/fhiranator_doodle_512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
