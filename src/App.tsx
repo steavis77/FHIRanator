@@ -492,9 +492,7 @@ curl -X POST "$FHIR_BASE" \\
           </section>
         </div>
 
-        <footer className="mt-6 text-xs text-slate-500">
-          Public build note: don’t paste production PHI into public tools. PHI-safe mode masks display only.
-        </footer>
+       
       </main>
 
       {/* Profile Modal */}
@@ -601,6 +599,38 @@ curl -X POST "$FHIR_BASE" \\
           </div>
         </div>
       )}
+          <footer className="mx-auto max-w-6xl px-6 pb-8 pt-2 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+              <div className="flex flex-wrap items-center gap-3">
+               
+                <a
+                  className="hover:text-slate-700 underline underline-offset-2"
+                  href="https://github.com/steavis77/FHIRanator#readme"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  README
+                </a>
+                <a
+                  className="hover:text-slate-700 underline underline-offset-2"
+                  href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback"
+                >
+                  Report an issue
+                </a>
+                <a
+                  className="hover:text-slate-700 underline underline-offset-2"
+                  href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback"
+                >
+                  Feedback
+                </a>
+              </div>
+
+              <div className="opacity-80">
+                Public build note: don’t paste production PHI. PHI-safe mode masks display only.
+              </div>
+            </div>
+          </footer>
+
     </div>
   );
 }
