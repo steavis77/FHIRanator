@@ -517,7 +517,7 @@ curl -X POST "$FHIR_BASE" \\
                 Ask FHIRanator is disabled while PHI-safe mode is on (to avoid sending PHI to an LLM).
               </div>
             ) : (
-              <AskFhirPanel phiSafe={phiSafe} getFhirJson={() => output} />
+              <AskFhirPanel getFhirJson={() => output} />
             )}
           </div>
 

@@ -2,109 +2,71 @@ import { useState } from "react";
 
 type Props = {
   getFhirJson: () => string;
-  phiSafe?: boolean; // ✅ make optional so TS stops blocking builds
 };
 
-
-
-export default function AskFhirPanel({ getFhirJson, phiSafe }: Props) {
+export default function AskFhirPanel({ getFhirJson }: Props) {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<string>("");
+  const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
 
-  async function onAsk() {
-    setError("");
-    setAnswer("");
-    const q = question.trim();
-    if (!q) return;
-
-    // guardrail: don't send raw FHIR/PHI if PHI-safe is on
-    if (phiSafe) {
-      setError("PHI-safe mode is ON. Turn it off to send JSON to Ask FHIRanator.");
-      return;
-    }
-
+  async function ask(mode: "general" | "summarize") {
     setLoading(true);
+    setAnswer("");
+
+    const body: any = { mode, question };
+    if (mode === "summarize") body.fhirJson = getFhirJson();
+
     try {
-      const res = await fetch("/api/ask", {
+      const resp = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: q,
-          fhirJson: getFhirJson(),
-        }),
+        body: JSON.stringify(body),
       });
 
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `Request failed (${res.status})`);
-      }
-
-      const data = await res.json();
-      // support a few common shapes
-      const a =
-        data.answer ??
-        data.text ??
-        data.message ??
-        (typeof data === "string" ? data : JSON.stringify(data, null, 2));
-
-      setAnswer(a);
+      const data = await resp.json().catch(() => ({}));
+      setAnswer(data.answer || data.error || `HTTP ${resp.status}`);
     } catch (e: any) {
-      setError(e?.message || "Something went wrong.");
+      setAnswer(e?.message || "Request failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="rounded-xl border bg-white p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold">Ask FHIRanator</div>
-          <div className="text-xs text-slate-500">
-            Ask questions about FHIR or the current right-panel JSON.
-          </div>
-        </div>
-        <span className={`text-[11px] px-2 py-1 rounded-full border ${phiSafe ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
-          {phiSafe ? "PHI-safe: blocks send" : "Send enabled"}
-        </span>
-      </div>
+    <div className="rounded-xl border p-4 bg-white">
+      <div className="font-semibold mb-2">Ask FHIRanator</div>
 
-      <div className="mt-3 flex gap-2">
-        <input
-          className="w-full rounded-lg border px-3 py-2 text-sm"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="e.g. What does a transaction bundle mean? Or: summarize this Bundle."
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAsk();
-          }}
-        />
+      <textarea
+        className="w-full border rounded-lg p-2 text-sm"
+        rows={3}
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Ask about FHIR/HL7... or click Summarize to describe the generated FHIR JSON."
+      />
+
+      <div className="flex gap-2 mt-2">
         <button
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-          onClick={onAsk}
-          disabled={loading}
-          title="Ctrl/Cmd + Enter works too"
+          className="px-3 py-2 rounded-lg border"
+          disabled={loading || !question.trim()}
+          onClick={() => ask("general")}
         >
-          {loading ? "Asking…" : "Ask"}
+          {loading ? "…" : "Ask (general)"}
+        </button>
+
+        <button
+          className="px-3 py-2 rounded-lg border"
+          disabled={loading || !question.trim()}
+          onClick={() => ask("summarize")}
+        >
+          {loading ? "…" : "Summarize FHIR"}
         </button>
       </div>
 
-      {error && <div className="mt-2 text-sm text-rose-700">{error}</div>}
-
       {answer && (
-        <pre className="mt-3 text-xs bg-slate-50 border rounded-xl p-3 overflow-auto whitespace-pre-wrap">
+        <div className="mt-3 text-sm whitespace-pre-wrap rounded-lg bg-slate-50 p-3 border">
           {answer}
-        </pre>
+        </div>
       )}
     </div>
   );
 }
-//
-//  AskFhirPanel.tsx
-//  
-//
-//  Created by Steve Lambert on 1/29/26.
-//
-
