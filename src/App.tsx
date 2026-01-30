@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { SAMPLE_ADT, SAMPLE_ORU } from "./sample";
 import { detectMessageType, getFirstSegment, parseHL7 } from "./hl7";
+import AskFhirPanel from "./components/AskFhirPanel";
+
 import {
   buildDiagnosticReport,
   buildEncounter,
@@ -46,6 +48,7 @@ function mask(value: string) {
   if (!value) return value;
   return "••••••";
 }
+
 function SegmentBlock(props: {
   title: string;
   content: string | null;
@@ -64,7 +67,6 @@ function SegmentBlock(props: {
   );
 }
 
-
 export default function App() {
   const [input, setInput] = useState<string>(SAMPLE_ADT);
   const [phiSafe, setPhiSafe] = useState<boolean>(true);
@@ -74,7 +76,9 @@ export default function App() {
   // Profile
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
-  const [authorityLines, setAuthorityLines] = useState<string>(() => toKeyValueLines(loadProfile().assigningAuthorityMap));
+  const [authorityLines, setAuthorityLines] = useState<string>(() =>
+    toKeyValueLines(loadProfile().assigningAuthorityMap)
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const profileImportRef = useRef<HTMLInputElement | null>(null);
 
@@ -91,7 +95,10 @@ export default function App() {
   // Base extract + resources (profile-aware)
   const baseExtracted = useMemo(() => extractFromAdt(pid, pv1), [pid, pv1]);
   const patient = useMemo(() => buildPatient(baseExtracted, profile), [baseExtracted, profile]);
-  const encounter = useMemo(() => buildEncounter(baseExtracted, patient.id, profile), [baseExtracted, patient.id, profile]);
+  const encounter = useMemo(
+    () => buildEncounter(baseExtracted, patient.id, profile),
+    [baseExtracted, patient.id, profile]
+  );
 
   const orux = useMemo(
     () => (isORU ? extractFromOru(pid, pv1, obr, obxLines) : null),
@@ -124,7 +131,8 @@ export default function App() {
       const nm = `${baseExtracted.family ?? ""}, ${baseExtracted.given ?? ""}`.trim();
       parts.push(`Name: ${phiSafe ? mask(nm) : nm}`);
     }
-    if (baseExtracted.visitNumber) parts.push(`Visit: ${phiSafe ? mask(baseExtracted.visitNumber) : baseExtracted.visitNumber}`);
+    if (baseExtracted.visitNumber)
+      parts.push(`Visit: ${phiSafe ? mask(baseExtracted.visitNumber) : baseExtracted.visitNumber}`);
     if (baseExtracted.patientClass) parts.push(`Class: ${baseExtracted.patientClass}`);
     if (baseExtracted.location) parts.push(`Location: ${baseExtracted.location}`);
     if (isORU) parts.push(`OBX: ${obxLines.length}`);
@@ -179,7 +187,6 @@ export default function App() {
   }
 
   function buildCurlScript() {
-    // For transaction bundle, POST to base is typical.
     const bundleJson = pretty(bundle);
     return `# FHIRanator: POST bundle to a FHIR server
 FHIR_BASE="https://your-fhir-server.example.com/fhir"
@@ -223,6 +230,9 @@ curl -X POST "$FHIR_BASE" \\
     };
     reader.readAsText(file);
   }
+
+  // Ask panel: safest default is to not pass PHI when PHI-safe mode is enabled.
+  const getFhirJson = () => (phiSafe ? "" : output);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -280,10 +290,16 @@ curl -X POST "$FHIR_BASE" \\
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div className="font-semibold">HL7 v2 Input</div>
               <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100" onClick={() => setInput(SAMPLE_ADT)}>
+                <button
+                  className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100"
+                  onClick={() => setInput(SAMPLE_ADT)}
+                >
                   Load ADT
                 </button>
-                <button className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100" onClick={() => setInput(SAMPLE_ORU)}>
+                <button
+                  className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100"
+                  onClick={() => setInput(SAMPLE_ORU)}
+                >
                   Load ORU
                 </button>
 
@@ -305,7 +321,10 @@ curl -X POST "$FHIR_BASE" \\
                   }}
                 />
 
-                <button className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100" onClick={() => setInput("")}>
+                <button
+                  className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100"
+                  onClick={() => setInput("")}
+                >
                   Clear
                 </button>
               </div>
@@ -343,100 +362,94 @@ curl -X POST "$FHIR_BASE" \\
               <div className="font-semibold">Explain</div>
               <div className="text-xs text-slate-500 mt-1">Key segments and extracted fields</div>
             </div>
-          <div className="rounded-xl border bg-slate-50 p-3">
-            <div className="text-xs text-slate-500 mb-2">Extracted</div>
-            <div className="text-sm grid grid-cols-2 gap-x-4 gap-y-1">
-              <div className="text-slate-500">MRN</div>
-              <div className="font-medium">{baseExtracted.mrn ? (phiSafe ? mask(baseExtracted.mrn) : baseExtracted.mrn) : "(missing)"}</div>
 
-              <div className="text-slate-500">Name</div>
-              <div className="font-medium">
-                {(baseExtracted.family || baseExtracted.given)
-                  ? (phiSafe
-                      ? mask(`${baseExtracted.family ?? ""}, ${baseExtracted.given ?? ""}`.trim())
-                      : `${baseExtracted.family ?? ""}, ${baseExtracted.given ?? ""}`.trim())
-                  : "(missing)"}
-              </div>
-
-              <div className="text-slate-500">DOB</div>
-              <div className="font-medium">{baseExtracted.dob ? (phiSafe ? "••••••" : baseExtracted.dob) : "—"}</div>
-
-              <div className="text-slate-500">Sex</div>
-              <div className="font-medium">{baseExtracted.sex ?? "—"}</div>
-
-              <div className="text-slate-500">Visit #</div>
-              <div className="font-medium">{baseExtracted.visitNumber ? (phiSafe ? mask(baseExtracted.visitNumber) : baseExtracted.visitNumber) : "—"}</div>
-
-              <div className="text-slate-500">Class</div>
-              <div className="font-medium">{baseExtracted.patientClass ?? "—"}</div>
-
-              <div className="text-slate-500">Location</div>
-              <div className="font-medium">{baseExtracted.location ?? "—"}</div>
-            </div>
-          </div>
-
-          <div className="p-4 space-y-4">
-            {isORU && resultsSummary.length > 0 && (
+            <div className="p-4 space-y-4">
               <div className="rounded-xl border bg-slate-50 p-3">
-                <div className="text-xs text-slate-500 mb-2">Results (quick view)</div>
-                <ul className="text-sm space-y-1">
-                  {resultsSummary.map((r, i) => (
-                    <li key={i} className="flex items-center justify-between gap-3">
-                      <span className="truncate">{r.name}</span>
-                      <span className="shrink-0 text-slate-700">
-                        {phiSafe ? mask("v") : r.val} {r.unit}{" "}
-                        {r.flag ? <span className="text-amber-700">({r.flag})</span> : null}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="text-xs text-slate-500 mb-2">Extracted</div>
+                <div className="text-sm grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div className="text-slate-500">MRN</div>
+                  <div className="font-medium">
+                    {baseExtracted.mrn ? (phiSafe ? mask(baseExtracted.mrn) : baseExtracted.mrn) : "(missing)"}
+                  </div>
+
+                  <div className="text-slate-500">Name</div>
+                  <div className="font-medium">
+                    {baseExtracted.family || baseExtracted.given
+                      ? phiSafe
+                        ? mask(`${baseExtracted.family ?? ""}, ${baseExtracted.given ?? ""}`.trim())
+                        : `${baseExtracted.family ?? ""}, ${baseExtracted.given ?? ""}`.trim()
+                      : "(missing)"}
+                  </div>
+
+                  <div className="text-slate-500">DOB</div>
+                  <div className="font-medium">{baseExtracted.dob ? (phiSafe ? "••••••" : baseExtracted.dob) : "—"}</div>
+
+                  <div className="text-slate-500">Sex</div>
+                  <div className="font-medium">{baseExtracted.sex ?? "—"}</div>
+
+                  <div className="text-slate-500">Visit #</div>
+                  <div className="font-medium">
+                    {baseExtracted.visitNumber ? (phiSafe ? mask(baseExtracted.visitNumber) : baseExtracted.visitNumber) : "—"}
+                  </div>
+
+                  <div className="text-slate-500">Class</div>
+                  <div className="font-medium">{baseExtracted.patientClass ?? "—"}</div>
+
+                  <div className="text-slate-500">Location</div>
+                  <div className="font-medium">{baseExtracted.location ?? "—"}</div>
+                </div>
               </div>
-            )}
 
-            {flags.length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <div className="text-xs font-semibold text-amber-900 mb-2">Review flags</div>
-                <ul className="text-sm list-disc pl-5 space-y-1 text-amber-900">
-                  {flags.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
-                </ul>
+              {isORU && resultsSummary.length > 0 && (
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <div className="text-xs text-slate-500 mb-2">Results (quick view)</div>
+                  <ul className="text-sm space-y-1">
+                    {resultsSummary.map((r, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3">
+                        <span className="truncate">{r.name}</span>
+                        <span className="shrink-0 text-slate-700">
+                          {phiSafe ? mask("v") : r.val} {r.unit}{" "}
+                          {r.flag ? <span className="text-amber-700">({r.flag})</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {flags.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <div className="text-xs font-semibold text-amber-900 mb-2">Review flags</div>
+                  <ul className="text-sm list-disc pl-5 space-y-1 text-amber-900">
+                    {flags.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500">Segments</div>
+
+                <SegmentBlock title="MSH" content={msh} open />
+
+                <SegmentBlock title="PID" content={pid} hidden={phiSafe} hiddenLabel="(PID hidden in PHI-safe mode)" />
+
+                <SegmentBlock title="PV1" content={pv1} hidden={phiSafe} hiddenLabel="(PV1 hidden in PHI-safe mode)" />
+
+                {isORU && (
+                  <>
+                    <SegmentBlock title="OBR" content={obr} hidden={phiSafe} hiddenLabel="(OBR hidden in PHI-safe mode)" />
+                    <SegmentBlock
+                      title={`OBX (${obxLines.length})`}
+                      content={obxLines.length ? obxLines.join("\n") : "(none)"}
+                      hidden={phiSafe}
+                      hiddenLabel="(OBX hidden in PHI-safe mode)"
+                    />
+                  </>
+                )}
               </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="text-xs text-slate-500">Segments</div>
-          <SegmentBlock title="MSH" content={msh} open />
-
-          <SegmentBlock
-            title="PID"
-            content={pid}
-            hidden={phiSafe}
-            hiddenLabel="(PID hidden in PHI-safe mode)"
-          />
-
-          <SegmentBlock
-            title="PV1"
-            content={pv1}
-            hidden={phiSafe}
-            hiddenLabel="(PV1 hidden in PHI-safe mode)"
-          />
-
-          {isORU && (
-            <>
-              <SegmentBlock title="OBR" content={obr} hidden={phiSafe} hiddenLabel="(OBR hidden in PHI-safe mode)" />
-              <SegmentBlock
-                title={`OBX (${obxLines.length})`}
-                content={obxLines.length ? obxLines.join("\n") : "(none)"}
-                hidden={phiSafe}
-                hiddenLabel="(OBX hidden in PHI-safe mode)"
-              />
-            </>
-          )}
-
             </div>
-          </div>
-
           </section>
 
           {/* FHIR Output */}
@@ -448,7 +461,10 @@ curl -X POST "$FHIR_BASE" \\
               </div>
 
               <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100" onClick={() => copy(output)}>
+                <button
+                  className="text-xs px-2 py-1 rounded-lg border bg-slate-50 hover:bg-slate-100"
+                  onClick={() => copy(output)}
+                >
                   Copy
                 </button>
 
@@ -483,16 +499,28 @@ curl -X POST "$FHIR_BASE" \\
               ))}
             </div>
 
-            <div className="p-3">
-              <pre className="h-[470px] text-xs bg-slate-50 border rounded-xl p-3 overflow-auto">{output}</pre>
-              <div className="mt-2 text-xs text-slate-500">
-                Tip: for FHIR servers, transaction bundle is usually easiest.
-              </div>
+          <div className="p-3">
+            <pre className="h-[470px] text-xs bg-slate-50 border rounded-xl p-3 overflow-auto">{output}</pre>
+
+            <div className="mt-2 text-xs text-slate-500">
+              Tip: for FHIR servers, transaction bundle is usually easiest.
+            </div>
+
+         
+          </div>
+
+
+            {/* Ask FHIRanator */}
+            <div className="border-t px-4 py-3">
+              <AskFhirPanel getFhirJson={getFhirJson} />
+              {phiSafe && (
+                <div className="mt-2 text-xs text-slate-500">
+                  Ask FHIRanator is disabled while PHI-safe mode is on (to avoid sending PHI to an LLM).
+                </div>
+              )}
             </div>
           </section>
         </div>
-
-       
       </main>
 
       {/* Profile Modal */}
@@ -525,10 +553,7 @@ curl -X POST "$FHIR_BASE" \\
                     Export
                   </button>
 
-                  <button
-                    className="text-sm px-3 py-2 rounded-xl border hover:bg-slate-50"
-                    onClick={() => profileImportRef.current?.click()}
-                  >
+                  <button className="text-sm px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={() => profileImportRef.current?.click()}>
                     Import
                   </button>
                   <input
@@ -599,38 +624,29 @@ curl -X POST "$FHIR_BASE" \\
           </div>
         </div>
       )}
-          <footer className="mx-auto max-w-6xl px-6 pb-8 pt-2 text-xs text-slate-500">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-              <div className="flex flex-wrap items-center gap-3">
-               
-                <a
-                  className="hover:text-slate-700 underline underline-offset-2"
-                  href="https://github.com/steavis77/FHIRanator#readme"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  README
-                </a>
-                <a
-                  className="hover:text-slate-700 underline underline-offset-2"
-                  href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback"
-                >
-                  Report an issue
-                </a>
-                <a
-                  className="hover:text-slate-700 underline underline-offset-2"
-                  href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback"
-                >
-                  Feedback
-                </a>
-              </div>
 
-              <div className="opacity-80">
-                Public build note: don’t paste production PHI. PHI-safe mode masks display only.
-              </div>
-            </div>
-          </footer>
+      <footer className="mx-auto max-w-6xl px-6 pb-8 pt-2 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              className="hover:text-slate-700 underline underline-offset-2"
+              href="https://github.com/steavis77/FHIRanator#readme"
+              target="_blank"
+              rel="noreferrer"
+            >
+              README
+            </a>
+            <a className="hover:text-slate-700 underline underline-offset-2" href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback">
+              Report an issue
+            </a>
+            <a className="hover:text-slate-700 underline underline-offset-2" href="mailto:steve@fhiranator.com?subject=FHIRanator%20Feedback">
+              Feedback
+            </a>
+          </div>
 
+          <div className="opacity-80">Public build note: don’t paste production PHI. PHI-safe mode masks display only.</div>
+        </div>
+      </footer>
     </div>
   );
 }
