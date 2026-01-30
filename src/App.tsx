@@ -232,7 +232,7 @@ curl -X POST "$FHIR_BASE" \\
   }
 
   // Ask panel: safest default is to not pass PHI when PHI-safe mode is enabled.
-  const getFhirJson = () => (phiSafe ? "" : output);
+  //const getFhirJson = () => (phiSafe ? "" : output);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -510,15 +510,17 @@ curl -X POST "$FHIR_BASE" \\
           </div>
 
 
-            {/* Ask FHIRanator */}
-            <div className="border-t px-4 py-3">
-          <AskFhirPanel phiSafe={phiSafe} getFhirJson={() => output} />
-              {phiSafe && (
-                <div className="mt-2 text-xs text-slate-500">
-                  Ask FHIRanator is disabled while PHI-safe mode is on (to avoid sending PHI to an LLM).
-                </div>
-              )}
-            </div>
+          {/* Ask FHIRanator */}
+          <div className="border-t px-4 py-3">
+            {phiSafe ? (
+              <div className="text-xs text-slate-500">
+                Ask FHIRanator is disabled while PHI-safe mode is on (to avoid sending PHI to an LLM).
+              </div>
+            ) : (
+              <AskFhirPanel phiSafe={phiSafe} getFhirJson={() => output} />
+            )}
+          </div>
+
           </section>
         </div>
       </main>
