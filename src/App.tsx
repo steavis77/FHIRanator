@@ -512,7 +512,7 @@ curl -X POST "$FHIR_BASE" \\
 
             {/* Ask FHIRanator */}
             <div className="border-t px-4 py-3">
-              <AskFhirPanel getFhirJson={getFhirJson} />
+          <AskFhirPanel phiSafe={phiSafe} getFhirJson={() => output} />
               {phiSafe && (
                 <div className="mt-2 text-xs text-slate-500">
                   Ask FHIRanator is disabled while PHI-safe mode is on (to avoid sending PHI to an LLM).
